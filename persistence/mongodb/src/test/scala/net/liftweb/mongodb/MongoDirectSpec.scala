@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2015 WorldWide Conferencing, LLC
+ * Copyright 2010-2018 WorldWide Conferencing, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -228,13 +228,13 @@ class MongoDirectSpec extends Specification with MongoTestKit {
       doc3.put("count", 1: java.lang.Integer)
 
       // save the docs to the db
-      Helpers.tryo(coll.save(doc, WriteConcern.SAFE)).toOption must beSome
-      coll.save(doc2, WriteConcern.SAFE) must throwA[MongoException]
-      Helpers.tryo(coll.save(doc2, WriteConcern.SAFE)) must beLike {
+      Helpers.tryo(coll.save(doc, WriteConcern.ACKNOWLEDGED)).toOption must beSome
+      coll.save(doc2, WriteConcern.ACKNOWLEDGED) must throwA[MongoException]
+      Helpers.tryo(coll.save(doc2, WriteConcern.ACKNOWLEDGED)) must beLike {
         case Failure(msg, _, _) =>
           msg must contain("E11000")
       }
-      Helpers.tryo(coll.save(doc3, WriteConcern.SAFE)).toOption must beSome
+      Helpers.tryo(coll.save(doc3, WriteConcern.ACKNOWLEDGED)).toOption must beSome
 
       // query for the docs by type
       val qry = new BasicDBObject("type", "db")
