@@ -14,13 +14,19 @@
 package net.liftweb
 package mongodb
 
+import net.liftweb.json.{DefaultFormats, Formats}
+import net.liftweb.json.JsonAST.JObject
+import net.liftweb.util.ConnectionIdentifier
+
+import scala.collection.JavaConverters.asScalaIteratorConverter
+
+import org.bson.Document
 import org.bson.types.ObjectId
 
-import json.{DefaultFormats, Formats}
-import json.JsonAST.JObject
-import util.ConnectionIdentifier
-
 import com.mongodb.{BasicDBObject, DB, DBCollection, DBObject}
+import com.mongodb.client.{MongoCollection, MongoDatabase}
+import com.mongodb.client.model.{DeleteOptions, UpdateOptions}
+import com.mongodb.client.result.{DeleteResult, UpdateResult}
 
 trait JsonFormats {
   // override this for custom Formats
@@ -67,41 +73,80 @@ trait MongoMeta[BaseDocument] extends JsonFormats {
   /*
    * Use the collection associated with this Meta.
    */
+  @deprecated("Use useCollection instead", "3.3.0")
   def useColl[T](f: DBCollection => T): T
+
+  /**
+   * Use the collection associated with this Meta.
+   */
+  def useCollection[T](f: MongoCollection[Document] => T): T
 
   /*
    * Use the db associated with this Meta.
    */
+  @deprecated("Use useDatabase instead", "3.3.0")
   def useDb[T](f: DB => T): T
+
+   /*
+   * Use the db associated with this Meta.
+   */
+  def useDatabase[T](f: MongoDatabase => T): T
 
   /*
   * Count all documents
   */
-  def count: Long = useColl { coll => coll.getCount }
+  def count: Long = useCollection(_.count)
 
   /*
   * Count documents by DBObject query
   */
-  def count(qry: DBObject):Long = useColl { coll => coll.getCount(qry) }
+  @deprecated("Use count that takes a Document typed argument instead", "3.3.0")
+  def count(qry: DBObject): Long = useColl { coll => coll.getCount(qry) }
+
+  /**
+   * Count documents by Document query
+   */
+  def count(qry: Document): Long = useCollection(_.count(qry))
 
   /*
   * Count documents by JObject query
   */
-  def count(qry: JObject):Long = count(JObjectParser.parse(qry))
+  def count(qry: JObject): Long = count(DocumentParser.parse(qry))
 
   /*
   * Count distinct records on a given field
   */
+  @deprecated("Use countDistinct that takes a Document typed argument instead", "3.3.0")
   def countDistinct(key: String, query: DBObject): Long =
     useColl { coll => coll.distinct(key, query).size }
+
+  /**
+   * Count distinct records on a given field
+   */
+  def countDistinct(key: String, query: Document): Long =
+    useCollection(_.distinct(key, query, classOf[Document]).iterator.asScala.size)
 
   /*
   * Delete documents by a DBObject query
   */
+  @deprecated("Use deleteOne or deleteMany instead", "3.3.0")
   def delete(qry: DBObject): Unit =
     useColl { coll => coll.remove(qry) }
 
+  /**
+   * Delete a single document by a Document query
+   */
+  def deleteOne(qry: Document, opts: DeleteOptions = new DeleteOptions()): DeleteResult =
+    useCollection(_.deleteOne(qry, opts))
+
+  /**
+   * Delete a single document by a Document query
+   */
+  def deleteMany(qry: Document, opts: DeleteOptions = new DeleteOptions()): DeleteResult =
+    useCollection(_.deleteMany(qry, opts))
+
   // delete a document
+  @deprecated("Use deleteOne or deleteMany instead", "3.3.0")
   def delete(k: String, v: Any) {
     delete(new BasicDBObject(k, v match {
       case s: String if (ObjectId.isValid(s)) => new ObjectId(s)
@@ -112,10 +157,35 @@ trait MongoMeta[BaseDocument] extends JsonFormats {
   /*
   * Delete documents by a JObject query
   */
+  @deprecated("Use deleteOne or deleteMany instead", "3.3.0")
   def delete(qry: JObject): Unit = delete(JObjectParser.parse(qry))
 
+  /**
+   * Delete a single document by a JObject query
+   */
+  def deleteOne(qry: JObject, opts: DeleteOptions): DeleteResult =
+    useCollection(_.deleteOne(DocumentParser.parse(qry), opts))
+
+  /**
+   * Delete a single document by a JObject query
+   */
+  def deleteOne(qry: JObject): DeleteResult =
+    deleteOne(qry, new DeleteOptions())
+
+  /**
+   * Delete a single document by a JObject query
+   */
+  def deleteMany(qry: JObject, opts: DeleteOptions): DeleteResult =
+    useCollection(_.deleteMany(DocumentParser.parse(qry), opts))
+
+  /**
+   * Delete a single document by a JObject query
+   */
+  def deleteMany(qry: JObject): DeleteResult =
+    deleteMany(qry, new DeleteOptions())
+
   /* drop this document collection */
-  def drop: Unit =  useColl { coll => coll.drop }
+  def drop: Unit =  useCollection(_.drop())
 
   def createIndex(keys: JObject, unique: Boolean = false): Unit = {
     val options = new BasicDBObject
@@ -135,6 +205,7 @@ trait MongoMeta[BaseDocument] extends JsonFormats {
   /*
   * Update document with a DBObject query using the given Mongo instance.
   */
+  @deprecated("Use updateOne or updateMany instead", "3.3.0")
   def update(qry: DBObject, newobj: DBObject, db: DB, opts: UpdateOption*) {
     val dboOpts = opts.toList
     db.getCollection(collectionName).update(
@@ -145,9 +216,39 @@ trait MongoMeta[BaseDocument] extends JsonFormats {
     )
   }
 
+  /**
+   * Update document with a Document query using the given Mongo instance.
+   */
+  def updateOne(qry: Document, newobj: Document, opts: UpdateOptions): UpdateResult = {
+    useDatabase { db =>
+      db.getCollection(collectionName).updateOne(qry, newobj, opts)
+    }
+  }
+
+  def updateOne(qry: Document, newobj: Document): UpdateResult = {
+    updateOne(qry, newobj, new UpdateOptions())
+  }
+
+  /**
+   * Update document with a Document query using the given Mongo instance.
+   */
+  def updateMany(qry: Document, newobj: Document, opts: UpdateOptions): UpdateResult = {
+    useDatabase { db =>
+      db.getCollection(collectionName).updateMany(qry, newobj, opts)
+    }
+  }
+
+  /**
+   * Update document with a Document query using the given Mongo instance.
+   */
+  def updateMany(qry: Document, newobj: Document): UpdateResult = {
+    updateMany(qry, newobj, new UpdateOptions())
+  }
+
   /*
   * Update document with a JObject query using the given Mongo instance.
   */
+  @deprecated("Use updateOne or updateMany instead", "3.3.0")
   def update(qry: JObject, newobj: JObject, db: DB, opts: UpdateOption*) {
     update(
       JObjectParser.parse(qry),
@@ -157,9 +258,54 @@ trait MongoMeta[BaseDocument] extends JsonFormats {
     )
   }
 
+  /**
+   * Update a single document with a JObject query
+   */
+  def updateOne(qry: JObject, newobj: JObject, opts: UpdateOptions): UpdateResult = {
+    updateOne(
+      DocumentParser.parse(qry),
+      DocumentParser.parse(newobj),
+      opts
+    )
+  }
+
+  /**
+   * Update a single document with a JObject query
+   */
+  def updateOne(qry: JObject, newobj: JObject): UpdateResult = {
+    updateOne(
+      qry,
+      newobj,
+      new UpdateOptions()
+    )
+  }
+
+  /**
+   * Update many documents with a JObject query
+   */
+  def updateMany(qry: JObject, newobj: JObject, opts: UpdateOptions): UpdateResult = {
+    updateMany(
+      DocumentParser.parse(qry),
+      DocumentParser.parse(newobj),
+      opts
+    )
+  }
+
+  /**
+   * Update many documents with a JObject query
+   */
+  def updateMany(qry: JObject, newobj: JObject): UpdateResult = {
+    updateMany(
+      DocumentParser.parse(qry),
+      DocumentParser.parse(newobj),
+      new UpdateOptions()
+    )
+  }
+
   /*
   * Update document with a JObject query.
   */
+  @deprecated("Use updateOne or updateMany instead", "3.3.0")
   def update(qry: JObject, newobj: JObject, opts: UpdateOption*) {
     useDb { db => update(qry, newobj, db, opts :_*) }
   }
@@ -177,7 +323,7 @@ case class Skip(value: Int) extends FindOption
 /*
 * For passing in options to the update function
 */
+@deprecated("Use UpdateOptions instead", "3.3.0")
 abstract sealed class UpdateOption
 case object Upsert extends UpdateOption
 case object Multi extends UpdateOption
-

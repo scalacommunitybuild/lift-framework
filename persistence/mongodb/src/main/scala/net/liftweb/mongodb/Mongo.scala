@@ -23,8 +23,9 @@ import java.util.concurrent.ConcurrentHashMap
 
 import scala.collection.immutable.HashSet
 
+import org.bson.Document
 import com.mongodb.{DB, DBCollection, Mongo, MongoClient, MongoException, MongoOptions, ServerAddress}
-import com.mongodb.client.MongoDatabase
+import com.mongodb.client.{MongoCollection, MongoDatabase}
 
 /**
   * Main Mongo object
@@ -46,6 +47,7 @@ object MongoDB {
   /**
     * Get a DB reference
     */
+  @deprecated("Use getDatabase or useDatabase instead", "3.3.0")
   def getDb(name: ConnectionIdentifier): Option[DB] = dbs.get(name) match {
     case null => None
     case (mngo, db) => Some(mngo.getDB(db))
@@ -58,17 +60,26 @@ object MongoDB {
     Option(dbs.get(name)).map { case (mngo, db) => mngo.getDatabase(db) }
   }
 
+  // for legacy purposes
+  private[this] def getColl(name: ConnectionIdentifier, collectionName: String): Option[DBCollection] =
+    getDb(name) match {
+      case Some(mongo) if mongo != null => Some(mongo.getCollection(collectionName))
+      case _ => None
+    }
+
   /**
-    * Get a Mongo collection. Gets a Mongo db first.
-    */
-  private[this] def getCollection(name: ConnectionIdentifier, collectionName: String): Option[DBCollection] = getDb(name) match {
-    case Some(mongo) if mongo != null => Some(mongo.getCollection(collectionName))
-    case _ => None
-  }
+   * Get a Mongo collection. Gets a Mongo db first.
+   */
+  private[this] def getCollection(name: ConnectionIdentifier, collectionName: String): Option[MongoCollection[Document]] =
+    getDatabase(name) match {
+      case Some(mongo) if mongo != null => Some(mongo.getCollection(collectionName))
+      case _ => None
+    }
 
   /**
     * Executes function {@code f} with the mongo db named {@code name}.
     */
+  @deprecated("Use useDatabase instead", "3.3.0")
   def use[T](name: ConnectionIdentifier)(f: (DB) => T): T = {
 
     val db = getDb(name) match {
@@ -80,9 +91,22 @@ object MongoDB {
   }
 
   /**
-    * Executes function {@code f} with the mongo named {@code name}.
-    * Uses the default ConnectionIdentifier
+    * Executes function {@code f} with the mongo db named {@code name}.
     */
+  def useDatabase[T](name: ConnectionIdentifier)(f: (MongoDatabase) => T): T = {
+
+    val db = getDatabase(name) match {
+      case Some(mongo) => mongo
+      case _ => throw new MongoException("Mongo not found: "+name.toString)
+    }
+
+    f(db)
+  }
+
+  /**
+    * Executes function {@code f} with the DefaultConnectionIdentifier
+    */
+  @deprecated("Use useDatabase instead", "3.3.0")
   def use[T](f: (DB) => T): T = {
 
     val db = getDb(DefaultConnectionIdentifier) match {
@@ -94,10 +118,36 @@ object MongoDB {
   }
 
   /**
+    * Executes function {@code f} with the DefaultConnectionIdentifier
+    */
+  def useDatase[T](f: (MongoDatabase) => T): T = {
+    val db = getDatabase(DefaultConnectionIdentifier) match {
+      case Some(mongo) => mongo
+      case _ => throw new MongoException("Mongo not found: "+DefaultConnectionIdentifier.toString)
+    }
+
+    f(db)
+  }
+
+  /**
     * Executes function {@code f} with the mongo named {@code name} and
     * collection names {@code collectionName}. Gets a collection for you.
     */
+  @deprecated("Use useMongoCollection instead", "3.3.0")
   def useCollection[T](name: ConnectionIdentifier, collectionName: String)(f: (DBCollection) => T): T = {
+    val coll = getColl(name, collectionName) match {
+      case Some(collection) => collection
+      case _ => throw new MongoException("Mongo not found: "+collectionName+". ConnectionIdentifier: "+name.toString)
+    }
+
+    f(coll)
+  }
+
+  /**
+    * Executes function {@code f} with the mongo named {@code name} and
+    * collection names {@code collectionName}. Gets a collection for you.
+    */
+  def useMongoCollection[T](name: ConnectionIdentifier, collectionName: String)(f: (MongoCollection[Document]) => T): T = {
     val coll = getCollection(name, collectionName) match {
       case Some(collection) => collection
       case _ => throw new MongoException("Mongo not found: "+collectionName+". ConnectionIdentifier: "+name.toString)
@@ -109,7 +159,20 @@ object MongoDB {
   /**
     * Same as above except uses DefaultConnectionIdentifier
     */
+  @deprecated("Use useMongoCollection instead", "3.3.0")
   def useCollection[T](collectionName: String)(f: (DBCollection) => T): T = {
+    val coll = getColl(DefaultConnectionIdentifier, collectionName) match {
+      case Some(collection) => collection
+      case _ => throw new MongoException("Mongo not found: "+collectionName+". ConnectionIdentifier: "+DefaultConnectionIdentifier.toString)
+    }
+
+    f(coll)
+  }
+
+  /**
+   * Same as above except uses DefaultConnectionIdentifier
+   */
+  def useMongoCollection[T](collectionName: String)(f: (MongoCollection[Document]) => T): T = {
     val coll = getCollection(DefaultConnectionIdentifier, collectionName) match {
       case Some(collection) => collection
       case _ => throw new MongoException("Mongo not found: "+collectionName+". ConnectionIdentifier: "+DefaultConnectionIdentifier.toString)

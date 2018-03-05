@@ -25,6 +25,8 @@ import scala.collection.JavaConverters.asScalaIteratorConverter
 import java.util.UUID
 
 import com.mongodb._
+import com.mongodb.client.{MongoCollection, MongoDatabase}
+import org.bson.Document
 import org.bson.types.ObjectId
 
 /*
@@ -62,16 +64,35 @@ trait MongoDocumentMeta[BaseDocument] extends JsonObjectMeta[BaseDocument] with 
   /*
    * Use the collection associated with this Meta.
    */
+  @deprecated("Use useCollection instead", "3.3.0")
   def useColl[T](f: DBCollection => T): T =
     MongoDB.useCollection(connectionIdentifier, collectionName)(f)
+
+  /**
+   * Use the collection associated with this Meta.
+   */
+  def useCollection[T](f: MongoCollection[Document] => T): T =
+    MongoDB.useMongoCollection(connectionIdentifier, collectionName)(f)
 
   /*
    * Use the db associated with this Meta.
    */
+  @deprecated("Use useDatabase instead", "3.3.0")
   def useDb[T](f: DB => T): T = MongoDB.use(connectionIdentifier)(f)
 
+  /*
+   * Use the database associated with this Meta.
+   */
+  def useDatabase[T](f: MongoDatabase => T): T =
+    MongoDB.useDatabase(connectionIdentifier)(f)
+
+  @deprecated("Use create that takes a Document typed argument instead", "3.3.0")
   def create(dbo: DBObject): BaseDocument = {
     create(JObjectParser.serialize(dbo).asInstanceOf[JObject])
+  }
+
+  def create(doc: Document): BaseDocument = {
+    create(DocumentParser.serialize(doc).asInstanceOf[JObject])
   }
 
   /**
@@ -87,6 +108,20 @@ trait MongoDocumentMeta[BaseDocument] extends JsonObjectMeta[BaseDocument] with 
       }
     )
   }
+
+  /**
+   * Find a single row by a qry, using a Document.
+   */
+  // def find(qry: Document): Option[BaseDocument] = {
+  //   MongoDB.useMongoCollection(connectionIdentifier, collectionName) { coll =>
+  //     coll.find(qry) match {
+  //       case null => None
+  //       case dbo => {
+  //         Some(create(dbo))
+  //       }
+  //     }
+  //   }
+  // }
 
   /**
   * Find a single document by _id using a String.

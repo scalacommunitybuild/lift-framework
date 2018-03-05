@@ -22,6 +22,7 @@ import java.util.UUID
 
 import com.mongodb._
 import com.mongodb.async.SingleResultCallback
+import com.mongodb.client.MongoDatabase
 import com.mongodb.client.model.UpdateOptions
 import com.mongodb.client.result.UpdateResult
 import net.liftweb.common._
@@ -59,7 +60,14 @@ trait MongoMetaRecord[BaseRecord <: MongoRecord[BaseRecord]]
   /*
    * Use the db associated with this Meta.
    */
+  @deprecated("Use useDatabase instead", "3.3.0")
   def useDb[T](f: DB => T): T = MongoDB.use(connectionIdentifier)(f)
+
+  /*
+   * Use the db associated with this Meta.
+   */
+  def useDatabase[T](f: MongoDatabase => T): T =
+    MongoDB.useDatabase(connectionIdentifier)(f)
 
   def useCollAsync[T](f: com.mongodb.async.client.MongoCollection[Document] => T): T = {
     MongoAsync.useCollection[T](connectionIdentifier, collectionName)(f)
@@ -335,17 +343,25 @@ trait MongoMetaRecord[BaseRecord <: MongoRecord[BaseRecord]]
   /*
   * Update records with a JObject query using the given Mongo instance
   */
+  @deprecated("Use update that takes MongoDatabase as argument instead", "3.3.0")
   def update(qry: JObject, newbr: BaseRecord, db: DB, opts: UpdateOption*): Unit = {
     update(JObjectParser.parse(qry), newbr.asDBObject, db, opts :_*)
+  }
+
+  /**
+   * Update records with a JObject query using the given Mongo instance
+   */
+  def update(qry: JObject, newbr: BaseRecord, database: MongoDatabase, opts: UpdateOption*): Unit = {
+    update(JObjectParser.parse(qry), newbr.asDBObject, database, opts :_*)
   }
 
   /*
   * Update records with a JObject query
   */
   def update(qry: JObject, newbr: BaseRecord, opts: UpdateOption*): Unit =  {
-    useDb ( db =>
+    useDatabase { db =>
       update(qry, newbr, db, opts :_*)
-    )
+    }
   }
 
   /**
