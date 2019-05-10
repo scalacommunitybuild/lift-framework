@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2018 WorldWide Conferencing, LLC
+ * Copyright 2010-2019 WorldWide Conferencing, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,7 +64,7 @@ trait MongoDocumentMeta[BaseDocument] extends JsonObjectMeta[BaseDocument] with 
   /*
    * Use the collection associated with this Meta.
    */
-  @deprecated("Use useCollection instead", "3.3.0")
+  @deprecated("Use useCollection instead", "3.3.1")
   def useColl[T](f: DBCollection => T): T =
     MongoDB.useCollection(connectionIdentifier, collectionName)(f)
 
@@ -77,7 +77,7 @@ trait MongoDocumentMeta[BaseDocument] extends JsonObjectMeta[BaseDocument] with 
   /*
    * Use the db associated with this Meta.
    */
-  @deprecated("Use useDatabase instead", "3.3.0")
+  @deprecated("Use useDatabase instead", "3.3.1")
   def useDb[T](f: DB => T): T = MongoDB.use(connectionIdentifier)(f)
 
   /*
@@ -86,7 +86,7 @@ trait MongoDocumentMeta[BaseDocument] extends JsonObjectMeta[BaseDocument] with 
   def useDatabase[T](f: MongoDatabase => T): T =
     MongoDB.useDatabase(connectionIdentifier)(f)
 
-  @deprecated("Use create that takes a Document typed argument instead", "3.3.0")
+  @deprecated("Use create that takes a Document typed argument instead", "3.3.1")
   def create(dbo: DBObject): BaseDocument = {
     create(JObjectParser.serialize(dbo).asInstanceOf[JObject])
   }

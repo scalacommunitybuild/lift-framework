@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 WorldWide Conferencing, LLC
+ * Copyright 2019 WorldWide Conferencing, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ import org.bson.{BsonReader, BsonWriter}
 /**
  * A Codec for JDouble instances.
  *
- * @since 3.3.0
+ * @since 3.3.1
  */
 class JDoubleCodec extends Codec[JDouble] {
   override def decode(reader: BsonReader, decoderContext: DecoderContext): JDouble = {

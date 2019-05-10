@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 WorldWide Conferencing, LLC
+ * Copyright 2019 WorldWide Conferencing, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ import org.bson.types.ObjectId
  * Some BsonTypes that don't have JValue equivalents (ObjectId, DateTime, etc.)
  * are converted to JObject and treated as special cases here.
  *
- * @since 3.3.0
+ * @since 3.3.1
  */
 class JObjectCodec(
   codecRegistry: CodecRegistry = JObjectCodec.DEFAULT_REGISTRY,

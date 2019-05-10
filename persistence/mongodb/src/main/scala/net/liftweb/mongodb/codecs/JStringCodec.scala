@@ -26,7 +26,7 @@ import org.bson.{BsonReader, BsonWriter}
 /**
  * A Codec for JString instances.
  *
- * @since 3.3.0
+ * @since 3.3.1
  */
 class JStringCodec extends Codec[JString] {
   override def decode(reader: BsonReader, decoderContext: DecoderContext): JString = {

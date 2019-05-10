@@ -23,6 +23,8 @@ import net.liftweb.common.{Box, Empty, Failure, Full}
 import net.liftweb.http.js.JE.{JsNull, JsRaw}
 import net.liftweb.json._
 import com.mongodb.DBObject
+import org.bson.BSONObject
+import org.bson.conversions.Bson
 
 /**
 * Describes common aspects related to Mongo fields
@@ -32,10 +34,16 @@ trait MongoFieldFlavor[MyType] {
   /*
   * convert this field's value into a DBObject so it can be stored in Mongo.
   */
+  @deprecated("Use asDocument instead", "3.3.1")
   def asDBObject: DBObject
+
+  // def asBson: BSONObject
 
   // set this field's value using a DBObject returned from Mongo.
   def setFromDBObject(obj: DBObject): Box[MyType]
+
+  // set this field's value using a Bson returned from Mongo.
+  // def setFromBson(doc: Bson): Box[MyType]
 
   /**
   * Returns the field's value as a valid JavaScript expression

@@ -67,6 +67,21 @@ object JsonRegex {
   def apply(p: Pattern): JValue = ("$regex" -> p.pattern) ~ ("$flags" -> p.flags)
 }
 
+object JsonRegularExpression {
+  case class Regex(pattern: String, options: String)
+
+  def unapply(json: JValue): Option[Regex] = {
+    json match {
+      case JObject(JField("$regex", JString(regex)) :: JField("$flags", JInt(f)) :: Nil) =>
+        Some(Regex(regex, f.toString))
+      case _ =>
+        None
+    }
+  }
+
+  def apply(p: Pattern): JValue = ("$regex" -> p.pattern) ~ ("$flags" -> p.flags)
+}
+
 object JsonUUID {
   def unapply(json: JValue): Option[UUID] = {
     json match {

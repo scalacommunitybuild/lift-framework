@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2018 WorldWide Conferencing, LLC
+ * Copyright 2010-2019 WorldWide Conferencing, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,13 +22,14 @@ import java.util.UUID
 
 import com.mongodb._
 import com.mongodb.async.SingleResultCallback
-import com.mongodb.client.MongoDatabase
-import com.mongodb.client.model.UpdateOptions
-import com.mongodb.client.result.UpdateResult
+import com.mongodb.client.{MongoCollection, FindIterable, MongoDatabase}
+import com.mongodb.client.model.{Filters, UpdateOptions}
+import com.mongodb.client.result.{DeleteResult, UpdateResult}
 import net.liftweb.common._
 import net.liftweb.json.JsonAST._
 import net.liftweb.record.MandatoryTypedField
-import org.bson.Document
+import org.bson.{BsonNull, Document}
+import org.bson.conversions.Bson
 import org.bson.types.ObjectId
 
 import scala.collection.JavaConverters._
@@ -54,13 +55,17 @@ trait MongoMetaRecord[BaseRecord <: MongoRecord[BaseRecord]]
   /*
    * Use the collection associated with this Meta.
    */
+  @deprecated("Use useCollection instead", "3.3.1")
   def useColl[T](f: DBCollection => T): T =
     MongoDB.useCollection(connectionIdentifier, collectionName)(f)
+
+  def useCollection[T](f: MongoCollection[Document] => T): T =
+    MongoDB.useMongoCollection(connectionIdentifier, collectionName)(f)
 
   /*
    * Use the db associated with this Meta.
    */
-  @deprecated("Use useDatabase instead", "3.3.0")
+  @deprecated("Use useDatabase instead", "3.3.1")
   def useDb[T](f: DB => T): T = MongoDB.use(connectionIdentifier)(f)
 
   /*
@@ -78,76 +83,77 @@ trait MongoMetaRecord[BaseRecord <: MongoRecord[BaseRecord]]
   */
   def delete_!(inst: BaseRecord): Boolean = {
     foreachCallback(inst, _.beforeDelete)
-    delete("_id", idValue(inst))
+    deleteOne(new Document("_id", idValue(inst)))
     foreachCallback(inst, _.afterDelete)
     true
   }
 
+  @deprecated("Use deleteMany instead", "3.3.1")
   def bulkDelete_!!(qry: DBObject): Unit = {
     useColl(coll =>
       coll.remove(qry)
     )
   }
 
-  def bulkDelete_!!(k: String, o: Any): Unit = bulkDelete_!!(new BasicDBObject(k, o))
+  def bulkDelete_!!(k: String, o: Any): Unit = deleteMany(new Document(k, o))
 
   /**
-  * Find a single row by a qry, using a DBObject.
-  */
-  def find(qry: DBObject): Box[BaseRecord] = {
-    useColl( coll =>
-      coll.findOne(qry) match {
+   * Find a single row using a Bson query.
+   */
+  def find(qry: Bson): Box[BaseRecord] = {
+    useCollection { coll =>
+      coll.find(qry).first() match {
         case null => Empty
-        case dbo => Full(fromDBObject(dbo))
+        case doc => Full(fromDocument(doc))
       }
-    )
+    }
   }
 
   /**
   * Find a single row by an ObjectId
   */
-  def find(oid: ObjectId): Box[BaseRecord] = find(new BasicDBObject("_id", oid))
+  def find(oid: ObjectId): Box[BaseRecord] = find(new Document("_id", oid))
 
   /**
   * Find a single row by a UUID
   */
-  def find(uid: UUID): Box[BaseRecord] = find(new BasicDBObject("_id", uid))
+  def find(uid: UUID): Box[BaseRecord] = find(new Document("_id", uid))
 
   /**
   * Find a single row by Any
   * This doesn't work as find because we need JObject's to be implicitly converted.
   *
   */
-  def findAny(a: Any): Box[BaseRecord] = find(new BasicDBObject("_id", a))
+  def findAny(a: Any): Box[BaseRecord] = find(new Document("_id", a))
 
   /**
   * Find a single row by a String id
   */
   def find(s: String): Box[BaseRecord] =
     if (ObjectId.isValid(s))
-      find(new BasicDBObject("_id", new ObjectId(s)))
+      find(new Document("_id", new ObjectId(s)))
     else
-      find(new BasicDBObject("_id", s))
+      find(new Document("_id", s))
 
   /**
   * Find a single row by an Int id
   */
-  def find(id: Int): Box[BaseRecord] = find(new BasicDBObject("_id", id))
+  def find(id: Int): Box[BaseRecord] = find(new Document("_id", id))
 
   /**
   * Find a single row by a Long id
   */
-  def find(id: Long): Box[BaseRecord] = find(new BasicDBObject("_id", id))
+  def find(id: Long): Box[BaseRecord] = find(new Document("_id", id))
 
   /**
   * Find a single document by a qry using a json value
   */
-  def find(json: JObject): Box[BaseRecord] = find(JObjectParser.parse(json))
+  def find(json: JObject): Box[BaseRecord] = find(DocumentParser.parse(json))
 
   /**
   * Find a single row by a qry using String key and Any value
   */
-  def find(k: String, o: Any): Box[BaseRecord] = find(new BasicDBObject(k, o))
+  def find(k: String, o: Any): Box[BaseRecord] = find(new Document(k, o))
 
   /**
     * Find all rows in this collection.
@@ -161,23 +167,39 @@ trait MongoMetaRecord[BaseRecord <: MongoRecord[BaseRecord]]
   }
 
   /**
-  * Find all rows using a DBObject query.
+  * Find all rows using a Bson query.
   */
-  def findAll(qry: DBObject, sort: Option[DBObject], opts: FindOption*): List[BaseRecord] = {
+  def findAll(qry: Bson, sort: Option[Bson], opts: FindOption*): List[BaseRecord] = {
     findAll(sort, opts:_*) { coll => coll.find(qry) }
   }
 
   /**
    * Find all rows and retrieve only keys fields.
    */
-  def findAll(qry: DBObject, keys: DBObject, sort: Option[DBObject], opts: FindOption*): List[BaseRecord] = {
-    findAll(sort, opts:_*) { coll => coll.find(qry, keys) }
+  def findAll(qry: Bson, keys: Bson, sort: Option[Bson], opts: FindOption*): List[BaseRecord] = {
+    findAll(sort, opts:_*) { coll => coll.find(qry).projection(keys) }
   }
 
-  protected def findAll(sort: Option[DBObject], opts: FindOption*)(f: (DBCollection) => DBCursor): List[BaseRecord] = {
+  // @deprecated("Use findAll that takes a Document as argument instead", "3.3.1")
+  // protected def findAll(sort: Option[DBObject], opts: FindOption*)(f: (DBCollection) => DBCursor): List[BaseRecord] = {
+  //   val findOpts = opts.toList
+
+  //   useColl { coll =>
+  //     val cur = f(coll).limit(
+  //       findOpts.find(_.isInstanceOf[Limit]).map(_.value).getOrElse(0)
+  //     ).skip(
+  //       findOpts.find(_.isInstanceOf[Skip]).map(_.value).getOrElse(0)
+  //     )
+  //     sort.foreach(s => cur.sort(s))
+  //     // This retrieves all documents and puts them in memory.
+  //     cur.iterator.asScala.map(fromDBObject).toList
+  //   }
+  // }
+
+  protected def findAll(sort: Option[Bson], opts: FindOption*)(f: (MongoCollection[Document]) => FindIterable[Document]): List[BaseRecord] = {
     val findOpts = opts.toList
 
-    useColl { coll =>
+    useCollection { coll =>
       val cur = f(coll).limit(
         findOpts.find(_.isInstanceOf[Limit]).map(_.value).getOrElse(0)
       ).skip(
@@ -185,7 +207,7 @@ trait MongoMetaRecord[BaseRecord <: MongoRecord[BaseRecord]]
       )
       sort.foreach(s => cur.sort(s))
       // This retrieves all documents and puts them in memory.
-      cur.iterator.asScala.map(fromDBObject).toList
+      cur.iterator.asScala.map(fromDocument).toList
     }
   }
 
@@ -193,56 +215,54 @@ trait MongoMetaRecord[BaseRecord <: MongoRecord[BaseRecord]]
    * Find all rows and retrieve only keys fields.
    */
   def findAll(qry: JObject, keys: JObject, sort: Option[JObject], opts: FindOption*): List[BaseRecord] = {
-    val s = sort.map(JObjectParser.parse(_))
-    findAll(JObjectParser.parse(qry), JObjectParser.parse(keys), s, opts :_*)
+    val s = sort.map(DocumentParser.parse(_))
+    findAll(DocumentParser.parse(qry), DocumentParser.parse(keys), s, opts :_*)
   }
 
   /**
-  * Find all documents using a DBObject query. These are for passing in regex queries.
-  */
-  def findAll(qry: DBObject, opts: FindOption*): List[BaseRecord] =
+   * Find all documents using a Bson query. These are for passing in regex queries.
+   */
+  def findAll(qry: Bson, opts: FindOption*): List[BaseRecord] =
     findAll(qry, None, opts :_*)
 
   /**
-  * Find all documents using a DBObject query with sort
-  */
-  def findAll(qry: DBObject, sort: DBObject, opts: FindOption*): List[BaseRecord] =
+   * Find all documents using a Document query with sort
+   */
+  def findAll(qry: Bson, sort: Bson, opts: FindOption*): List[BaseRecord] =
     findAll(qry, Some(sort), opts :_*)
 
   /**
-  * Find all documents using a JObject query
-  */
+   * Find all documents using a JObject query
+   */
   def findAll(qry: JObject, opts: FindOption*): List[BaseRecord] = {
-    findAll(JObjectParser.parse(qry), None, opts :_*)
+    findAll(DocumentParser.parse(qry), None, opts :_*)
   }
 
   /**
-  * Find all documents using a JObject query with sort
-  */
+   * Find all documents using a JObject query with sort
+   */
   def findAll(qry: JObject, sort: JObject, opts: FindOption*): List[BaseRecord] =
-    findAll(JObjectParser.parse(qry), Some(JObjectParser.parse(sort)), opts :_*)
+    findAll(DocumentParser.parse(qry), Some(DocumentParser.parse(sort)), opts :_*)
 
   /**
-  * Find all documents using a k, v query
-  */
+   * Find all documents using a k, v query
+   */
   def findAll(k: String, o: Any, opts: FindOption*): List[BaseRecord] =
-    findAll(new BasicDBObject(k, o), None, opts :_*)
+    findAll(new Document(k, o), None, opts :_*)
 
   /**
-  * Find all documents using a k, v query with JOBject sort
-  */
+   * Find all documents using a k, v query with JOBject sort
+   */
   def findAll(k: String, o: Any, sort: JObject, opts: FindOption*): List[BaseRecord] =
-    findAll(new BasicDBObject(k, o), Some(JObjectParser.parse(sort)), opts :_*)
-
+    findAll(new Document(k, o), Some(DocumentParser.parse(sort)), opts :_*)
 
   /**
-  * Find all documents with the given ids
-  */
+   * Find all documents with the given ids
+   */
   def findAllByList[T](ids: List[T]): List[BaseRecord] = if (ids.isEmpty) Nil else {
     val list = new java.util.ArrayList[T]()
     for (id <- ids.distinct) list.add(id)
-    val query = QueryBuilder.start("_id").in(list).get()
-    findAll(query)
+    findAll(Filters.in("_id", list))
   }
 
   def findAll(ids: List[ObjectId]): List[BaseRecord] = findAllByList[ObjectId](ids)
@@ -255,19 +275,21 @@ trait MongoMetaRecord[BaseRecord <: MongoRecord[BaseRecord]]
     true
   }
 
-  protected def updateOp(inst: BaseRecord)(f: => Unit): Unit = {
+  protected def updateOp(inst: BaseRecord)(f: => UpdateResult): UpdateResult = {
     foreachCallback(inst, _.beforeUpdate)
-    f
+    val res = f
     foreachCallback(inst, _.afterUpdate)
     inst.allFields.foreach { _.resetDirty }
+    res
   }
 
   /**
     * Save the instance in the appropriate backing store. Uses the WriteConcern set on the MongoClient instance.
     */
   def save(inst: BaseRecord): Boolean = saveOp(inst) {
-    useColl { coll =>
-      coll.save(inst.asDBObject)
+    val opts = new UpdateOptions().upsert(true)
+    useCollection { coll =>
+      coll.replaceOne(Filters.eq("_id", idValue(inst)), inst.asDocument, opts)
     }
   }
 
@@ -287,14 +309,16 @@ trait MongoMetaRecord[BaseRecord <: MongoRecord[BaseRecord]]
   * Save the instance in the appropriate backing store
   */
   def save(inst: BaseRecord, concern: WriteConcern): Boolean = saveOp(inst) {
-    useColl { coll =>
-      coll.save(inst.asDBObject, concern)
+    val opts = new UpdateOptions().upsert(true)
+    useCollection { coll =>
+      coll.withWriteConcern(concern).replaceOne(Filters.eq("_id", idValue(inst)), inst.asDocument, opts)
     }
   }
 
   /*
   * Save a document to the db using the given Mongo instance
   */
+  @deprecated("Use useDatabase instead", "3.3.1")
   def save(inst: BaseRecord, db: DB, concern: WriteConcern): Boolean = saveOp(inst) {
     db.getCollection(collectionName).save(inst.asDBObject, concern)
   }
@@ -310,7 +334,7 @@ trait MongoMetaRecord[BaseRecord <: MongoRecord[BaseRecord]]
       val doc: Document = inst.asDocument
       val options = new UpdateOptions().upsert(upsert)
       foreachCallback(inst, _.beforeSave)
-      val filter = new Document("_id", doc.get("_id"))
+      val filter = Filters.eq("_id", doc.get("_id"))
       coll.withWriteConcern(concern).replaceOne(filter, doc, options, new SingleResultCallback[UpdateResult] {
         override def onResult(result: UpdateResult, t: Throwable): Unit = {
           if (Option(t).isEmpty) {
@@ -334,39 +358,36 @@ trait MongoMetaRecord[BaseRecord <: MongoRecord[BaseRecord]]
    */
   def insertAll(insts: List[BaseRecord]): Unit = {
     insts.foreach(inst => foreachCallback(inst, _.beforeSave))
-    useColl( coll =>
-      coll.insert(insts.map(_.asDBObject).toArray:_*)
-    )
+    useCollection { coll =>
+      val list = new java.util.ArrayList[Document]()
+      insts.foreach(inst => list.add(inst.asDocument))
+      coll.insertMany(list)
+    }
     insts.foreach(inst => foreachCallback(inst, _.afterSave))
   }
 
   /*
   * Update records with a JObject query using the given Mongo instance
   */
-  @deprecated("Use update that takes MongoDatabase as argument instead", "3.3.0")
+  @deprecated("Use useDatabase instead", "3.3.1")
   def update(qry: JObject, newbr: BaseRecord, db: DB, opts: UpdateOption*): Unit = {
     update(JObjectParser.parse(qry), newbr.asDBObject, db, opts :_*)
   }
 
   /**
-   * Update records with a JObject query using the given Mongo instance
+   * Update records with a JObject query
    */
-  def update(qry: JObject, newbr: BaseRecord, database: MongoDatabase, opts: UpdateOption*): Unit = {
-    update(JObjectParser.parse(qry), newbr.asDBObject, database, opts :_*)
-  }
-
-  /*
-  * Update records with a JObject query
-  */
+  @deprecated("Use updateOne or updateMany instead", "3.3.1")
   def update(qry: JObject, newbr: BaseRecord, opts: UpdateOption*): Unit =  {
-    useDatabase { db =>
+    useDb ( db =>
       update(qry, newbr, db, opts :_*)
-    }
+    )
   }
 
   /**
   * Upsert records with a DBObject query
   */
+  @deprecated("Use updateOne or updateMany instead", "3.3.1")
   def upsert(query: DBObject, update: DBObject): Unit = {
     useColl( coll =>
       coll.update(query, update, true, false)
@@ -374,8 +395,9 @@ trait MongoMetaRecord[BaseRecord <: MongoRecord[BaseRecord]]
   }
 
   /**
-  * Update one record with a DBObject query
-  */
+   * Update one record with a DBObject query
+   */
+  @deprecated("Use updateOne or updateMany instead", "3.3.1")
   def update(query: DBObject, update: DBObject): Unit = {
     useColl( coll =>
       coll.update(query, update)
@@ -385,6 +407,7 @@ trait MongoMetaRecord[BaseRecord <: MongoRecord[BaseRecord]]
   /**
   * Update multiple records with a DBObject query
   */
+  @deprecated("Use updateOne or updateMany instead", "3.3.1")
   def updateMulti(query: DBObject, update: DBObject): Unit = {
     useColl( coll =>
       coll.updateMulti(query, update)
@@ -392,13 +415,10 @@ trait MongoMetaRecord[BaseRecord <: MongoRecord[BaseRecord]]
   }
 
   /**
-  * Update a record with a DBObject query
+  * Update a record with Bson
   */
-  def update(obj: BaseRecord, update: DBObject): Unit = {
-    val query = (BasicDBObjectBuilder.start
-                      .add("_id", idValue(obj))
-                      .get)
-    this.update(query, update)
+  def update(inst: BaseRecord, updated: Bson): UpdateResult = {
+    updateOne(Filters.eq("_id", idValue(inst)), updated)
   }
 
   /**
@@ -406,7 +426,7 @@ trait MongoMetaRecord[BaseRecord <: MongoRecord[BaseRecord]]
     *
     * Note: PatternField will always set the dirty flag when set.
     */
-  def update(inst: BaseRecord): Unit = updateOp(inst) {
+  def update(inst: BaseRecord): UpdateResult = updateOp(inst) {
     val dirtyFields = fields(inst).filter(_.dirty_?)
     if (dirtyFields.length > 0) {
       val (fullFields, otherFields) = dirtyFields
@@ -423,28 +443,32 @@ trait MongoMetaRecord[BaseRecord <: MongoRecord[BaseRecord]]
       ).map(_._1)
 
       if (fieldsToSet.length > 0 || fieldsToUnset.length > 0) {
-        val dbo = BasicDBObjectBuilder.start
+        val dbo = new Document
 
         if (fieldsToSet.length > 0) {
-          dbo.add(
+          dbo.append(
             "$set",
-            fieldsToSet.foldLeft(BasicDBObjectBuilder.start) {
-              (builder, pair) => builder.add(pair._1, pair._2)
-            }.get
+            fieldsToSet.foldLeft(new Document) {
+              (doc, pair) => doc.append(pair._1, pair._2)
+            }
           )
         }
 
         if (fieldsToUnset.length > 0) {
-          dbo.add(
+          dbo.append(
             "$unset",
-            fieldsToUnset.foldLeft(BasicDBObjectBuilder.start) {
-              (builder, fieldName) => builder.add(fieldName, 1)
-            }.get
+            fieldsToUnset.foldLeft(new Document) {
+              (doc, fieldName) => doc.append(fieldName, 1)
+            }
           )
         }
 
-        update(inst, dbo.get)
+        updateOne(Filters.eq("_id", idValue(inst)), dbo)
+      } else {
+        UpdateResult.acknowledged(0L, 0L, new BsonNull())
       }
+    } else {
+      UpdateResult.acknowledged(0L, 0L, new BsonNull())
     }
   }
 }

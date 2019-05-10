@@ -37,7 +37,7 @@ import org.bson.codecs.configuration.CodecRegistries.fromProviders
 /**
  * A codec for JValue instances.
  *
- * @since 3.3.0
+ * @since 3.3.1
  */
 class JValueCodec(codecRegistry: CodecRegistry = JValueCodec.DEFAULT_REGISTRY) extends Codec[JValue] {
 

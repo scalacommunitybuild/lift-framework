@@ -28,10 +28,12 @@ import net.liftweb.record.field._
 
 import com.mongodb._
 import java.util.prefs.BackingStoreException
-import org.bson.Document
+import org.bson.{BsonDocument, Document}
+import org.bson.codecs.configuration.CodecRegistry
+import org.bson.conversions.Bson
 
-/** Specialized Record that can be encoded and decoded from BSON (DBObject) */
-trait BsonRecord[MyType <: BsonRecord[MyType]] extends Record[MyType] {
+/** Specialized Record that can be encoded and decoded from BSON */
+trait BsonRecord[MyType <: BsonRecord[MyType]] extends Record[MyType] with Bson {
   self: MyType =>
 
   /** Refines meta to require a BsonMetaRecord */
@@ -69,6 +71,10 @@ trait BsonRecord[MyType <: BsonRecord[MyType]] extends Record[MyType] {
       case _ => false
     }
   }
+
+  override def toBsonDocument[TDocument](documentClass: Class[TDocument], codecRegistry: CodecRegistry): BsonDocument =
+    asDocument.toBsonDocument(documentClass, codecRegistry)
+
 }
 
 /** Specialized MetaRecord that deals with BsonRecords */
@@ -80,6 +86,7 @@ trait BsonMetaRecord[BaseRecord <: BsonRecord[BaseRecord]] extends MetaRecord[Ba
     * - MongoFieldFlavor types (List) are converted to DBObjects
     *   using asDBObject
     */
+  @deprecated("Use asDocument instead", "3.3.1")
   def asDBObject(inst: BaseRecord): DBObject = {
     val dbo = BasicDBObjectBuilder.start // use this so regex patterns can be stored.
 
@@ -121,13 +128,13 @@ trait BsonMetaRecord[BaseRecord <: BsonRecord[BaseRecord]] extends MetaRecord[Ba
           v => v.toString
         }
       case field: MongoFieldFlavor[_] =>
-        Full(field.asInstanceOf[MongoFieldFlavor[Any]].asDBObject)
+        Full(field.asInstanceOf[MongoFieldFlavor[Any]].asDBObject) // TODO: change to asDocument
       case field => field.valueBox map (_.asInstanceOf[AnyRef] match {
         case null => null
         case x if primitive_?(x.getClass) => x
         case x if mongotype_?(x.getClass) => x
         case x if datetype_?(x.getClass) => datetype2dbovalue(x)
-        case x: BsonRecord[_] => x.asDBObject
+        case x: BsonRecord[_] => x.asDocument
         case x: Array[Byte] => x
         case o => o.toString
       })
@@ -140,6 +147,7 @@ trait BsonMetaRecord[BaseRecord <: BsonRecord[BaseRecord]] extends MetaRecord[Ba
     * @param dbo - the DBObject
     * @return Box[BaseRecord]
     */
+  @deprecated("Use fromDocument instead", "3.3.1")
   def fromDBObject(dbo: DBObject): BaseRecord = {
     val inst: BaseRecord = createRecord
     setFieldsFromDBObject(inst, dbo)
@@ -154,6 +162,7 @@ trait BsonMetaRecord[BaseRecord <: BsonRecord[BaseRecord]] extends MetaRecord[Ba
     * @param dbo - The DBObject
     * @return Unit
     */
+  @deprecated("Use setFieldsFromDocument instead", "3.3.1")
   def setFieldsFromDBObject(inst: BaseRecord, dbo: DBObject): Unit = {
     for (k <- dbo.keySet.asScala; field <- inst.fieldByName(k.toString)) {
       field.setFromAny(dbo.get(k.toString))
@@ -177,4 +186,19 @@ trait BsonMetaRecord[BaseRecord <: BsonRecord[BaseRecord]] extends MetaRecord[Ba
     setFieldsFromDocument(inst, doc)
     inst
   }
+
+  // def setFieldsFromBson(inst: BaseRecord, bson: Bson): Unit = {
+  //   for (k <- bson.keySet.asScala; field <- inst.fieldByName(k.toString)) {
+  //     field.setFromAny(bson.get(k.toString))
+  //   }
+  //   inst.runSafe {
+  //     inst.fields.foreach(_.resetDirty)
+  //   }
+  // }
+
+  // def fromBson(bson: Bson): BaseRecord = {
+  //   val inst: BaseRecord = createRecord
+  //   setFieldsFromBson(inst, bson)
+  //   inst
+  // }
 }

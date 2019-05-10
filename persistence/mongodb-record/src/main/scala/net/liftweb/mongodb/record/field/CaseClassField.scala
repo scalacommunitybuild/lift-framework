@@ -28,8 +28,8 @@ import net.liftweb.util.Helpers
 import net.liftweb.json._
 import reflect.Manifest
 import net.liftweb.http.js.JsExp
-import org.bson.Document
 import scala.collection.JavaConverters._
+import org.bson.Document
 
 abstract class CaseClassTypedField[OwnerType <: Record[OwnerType], CaseType](val owner: OwnerType)(implicit mf: Manifest[CaseType])
   extends Field[CaseType, OwnerType] with MongoFieldFlavor[CaseType] {
@@ -56,11 +56,6 @@ abstract class CaseClassTypedField[OwnerType <: Record[OwnerType], CaseType](val
     case other => JObjectParser.parse(other.asInstanceOf[JObject])
   }
 
-  def setFromDocument(doc: Document): Box[CaseType] = {
-    val jv = JObjectParser.serialize(doc)
-    setFromJValue(jv)
-  }
-
   def setFromDBObject(dbo: DBObject): Box[CaseType] = {
     val jvalue = JObjectParser.serialize(dbo)
     setFromJValue(jvalue)
@@ -72,7 +67,6 @@ abstract class CaseClassTypedField[OwnerType <: Record[OwnerType], CaseType](val
 
   def setFromAny(in: Any): Box[CaseType] = in match {
     case dbo: DBObject => setFromDBObject(dbo)
-    case doc: org.bson.Document => setFromDocument(doc)
     case c if mf.runtimeClass.isInstance(c) => setBox(Full(c.asInstanceOf[CaseType]))
     case Full(c) if mf.runtimeClass.isInstance(c) => setBox(Full(c.asInstanceOf[CaseType]))
     case null|None|Empty     => setBox(defaultValueBox)

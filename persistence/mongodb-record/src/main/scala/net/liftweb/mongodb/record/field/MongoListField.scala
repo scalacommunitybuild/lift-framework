@@ -25,7 +25,9 @@ import net.liftweb.http.SHtml
 import net.liftweb.json._
 import net.liftweb.record.{Field, FieldHelpers, MandatoryTypedField}
 import net.liftweb.util.Helpers._
-import org.bson.Document
+import org.bson.{BSONObject, Document}
+import org.bson.conversions.Bson
+import org.bson.types.BasicBSONList
 
 import scala.collection.JavaConverters._
 import scala.xml.NodeSeq
@@ -159,6 +161,23 @@ class MongoListField[OwnerType <: BsonRecord[OwnerType], ListType: Manifest](rec
 
   def setFromDocumentList(list: java.util.List[Document]): Box[MyType] = {
     throw new RuntimeException("Warning, setting Document as field with no conversion, probably not something you want to do")
+  }
+
+  def asBson: BSONObject = {
+    val dbl = new BasicBSONList()
+    var i = 0
+
+    value.foreach {
+      case f =>	f.asInstanceOf[AnyRef] match {
+        case x if primitive_?(x.getClass) => dbl.put(i, x)
+        case x if mongotype_?(x.getClass) => dbl.put(i, x)
+        case x if datetype_?(x.getClass) => dbl.put(i, datetype2dbovalue(x))
+        case o => dbl.put(i, o.toString)
+      }
+      i = i + 1
+    }
+
+    dbl
   }
 
 }

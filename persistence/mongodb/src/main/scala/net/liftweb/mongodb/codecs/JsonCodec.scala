@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 WorldWide Conferencing, LLC
+ * Copyright 2019 WorldWide Conferencing, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ import org.bson.codecs.configuration.CodecRegistries.fromProviders
 /**
  * A codec for json instances.
  *
- * @since 3.0
+ * @since 3.3.1
  */
 object JsonCodec {
   private val ID_FIELD_NAME: String = "_id"

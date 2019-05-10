@@ -31,7 +31,7 @@ import java.util.{Map => JavaMap}
 /**
  * A {@code CodecProvider} for all subclass of JValue.
  *
- * @since 3.0
+ * @since 3.3.1
  */
 class JValueCodecProvider(formats: Formats) extends CodecProvider {
   private val _codecs: JavaMap[Class[_], Codec[_]] = {
