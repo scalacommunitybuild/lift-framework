@@ -35,19 +35,19 @@ object DocumentParser extends SimpleInjector {
     * Set this to override DocumentParser turning strings that are valid
     * ObjectIds into actual ObjectIds. For example, place the following in Boot.boot:
     *
-    * <code>DocumentParser.stringProcessor.default.set((s: String) => new BsonString(s))</code>
+    * <code>DocumentParser.stringProcessor.default.set((s: String) => s)</code>
     */
   val stringProcessor = new Inject(() => defaultStringProcessor _) {}
 
-  def defaultStringProcessor(s: String): BsonValue = {
-    if (ObjectId.isValid(s)) new BsonObjectId(new ObjectId(s))
-    else new BsonString(s)
+  def defaultStringProcessor(s: String): Object = {
+    if (ObjectId.isValid(s)) new ObjectId(s)
+    else s
   }
 
   /*
-  * Parse a JObject into a BsonDocument
+  * Parse a JObject into a Document
   */
-  def parse(jo: JObject)(implicit formats: Formats): BsonDocument =
+  def parse(jo: JObject)(implicit formats: Formats): Document =
     Parser.parse(jo, formats)
 
   /*
@@ -66,16 +66,18 @@ object DocumentParser extends SimpleInjector {
           JField(f.toString, serialize(x.get(f.toString))(formats))
         }
       )
-      case x: BsonDocument => JObject(
-        x.keySet.asScala.toList.map { f =>
-          JField(f.toString, serialize(x.get(f.toString), formats))
-        }
-      )
-      case x: Document => JObject(
-        x.keySet.asScala.toList.map { f =>
-          JField(f.toString, serialize(x.get(f.toString), formats))
-        }
-      )
+      case x: Document =>
+        println("Document: "+x)
+        val jo = JObject(
+          x.keySet.asScala.toList.map { f =>
+            println("f: "+f)
+            val v = x.get(f.toString)
+            println("v: "+v)
+            JField(f.toString, serialize(v, formats))
+          }
+        )
+        println("jo: "+jo)
+        jo
       case x => {
         JNothing
       }
@@ -84,34 +86,34 @@ object DocumentParser extends SimpleInjector {
 
   object Parser {
 
-    def parse(jo: JObject, formats: Formats): BsonDocument = {
+    def parse(jo: JObject, formats: Formats): Document = {
       parseObject(jo.obj)(formats)
     }
 
-    private def parseArray(arr: List[JValue])(implicit formats: Formats): BsonArray = {
-      val dbl = new ArrayList[BsonValue]()
+    private def parseArray(arr: List[JValue])(implicit formats: Formats): BasicDBList = {
+      val dbl = new BasicDBList
       trimArr(arr).foreach { a =>
         a match {
-          case JsonObjectId(objectId) => dbl.add(new BsonObjectId(objectId))
-          case JsonRegularExpression(regex) => dbl.add(new BsonRegularExpression(regex.pattern, regex.options))
-          case JsonUUID(uuid) => dbl.add(new BsonBinary(BsonBinarySubType.UUID_LEGACY, uuid.toString.getBytes))
-          case JsonDate(date) => dbl.add(new BsonDateTime(date.getTime))
+          case JsonObjectId(objectId) => dbl.add(objectId)
+          case JsonRegex(regex) => dbl.add(regex)
+          case JsonUUID(uuid) => dbl.add(uuid)
+          case JsonDate(date) => dbl.add(date)
           case JArray(arr) => dbl.add(parseArray(arr))
           case JObject(jo) => dbl.add(parseObject(jo))
           case jv: JValue => dbl.add(renderValue(jv))
         }
       }
-      new BsonArray(dbl)
+      dbl
     }
 
-    private def parseObject(obj: List[JField])(implicit formats: Formats): BsonDocument = {
-      val dbo = new BsonDocument
+    private def parseObject(obj: List[JField])(implicit formats: Formats): Document = {
+      val dbo = new Document
       trimObj(obj).foreach { jf =>
         jf.value match {
-          case JsonObjectId(objectId) => dbo.put(jf.name, new BsonObjectId(objectId))
-          case JsonRegularExpression(regex) => dbo.put(jf.name, new BsonRegularExpression(regex.pattern, regex.options))
-          case JsonUUID(uuid) => dbo.put(jf.name, new BsonBinary(BsonBinarySubType.UUID_LEGACY, uuid.toString.getBytes))
-          case JsonDate(date) => dbo.put(jf.name, new BsonDateTime(date.getTime))
+          case JsonObjectId(objectId) => dbo.put(jf.name, objectId)
+          case JsonRegex(regex) => dbo.put(jf.name, regex)
+          case JsonUUID(uuid) => dbo.put(jf.name, uuid)
+          case JsonDate(date) => dbo.put(jf.name, date)
           case JArray(arr) => dbo.put(jf.name, parseArray(arr))
           case JObject(jo) => dbo.put(jf.name, parseObject(jo))
           case jv: JValue => dbo.put(jf.name, renderValue(jv))
@@ -120,26 +122,26 @@ object DocumentParser extends SimpleInjector {
       dbo
     }
 
-    private def renderValue(jv: JValue)(implicit formats: Formats): BsonValue = jv match {
-      case JBool(b) => new BsonBoolean(java.lang.Boolean.valueOf(b))
+    private def renderValue(jv: JValue)(implicit formats: Formats): Object = jv match {
+      case JBool(b) => java.lang.Boolean.valueOf(b)
       case JInt(n) => renderInteger(n)
-      case JDouble(n) => new BsonDouble(new java.lang.Double(n))
-      case JNull => new BsonNull()
+      case JDouble(n) => new java.lang.Double(n)
+      case JNull => null
       case JNothing => sys.error("can't render 'nothing'")
-      case JString(null) => new BsonString("null")
+      case JString(null) => "null"
       case JString(s) => stringProcessor.vend(s)
-      case x => new BsonString(x.toString)
+      case x => x.toString
     }
 
-    private def renderInteger(i: BigInt): BsonValue = {
+    private def renderInteger(i: BigInt): Object = {
       if (i <= java.lang.Integer.MAX_VALUE && i >= java.lang.Integer.MIN_VALUE) {
-        new BsonInt32(i.intValue)
+        new java.lang.Integer(i.intValue)
       }
       else if (i <= java.lang.Long.MAX_VALUE && i >= java.lang.Long.MIN_VALUE) {
-        new BsonInt64(i.longValue)
+        new java.lang.Long(i.longValue)
       }
       else {
-        new BsonString(i.toString)
+        i.toString
       }
     }
 

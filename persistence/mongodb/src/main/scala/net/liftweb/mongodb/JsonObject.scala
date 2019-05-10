@@ -11,18 +11,19 @@
 * limitations under the License.
 */
 
-package net.liftweb 
-package mongodb 
+package net.liftweb
+package mongodb
 
 import json.Formats
 import json.JsonAST.JObject
 
 import scala.reflect.Manifest
 
+import org.bson.Document
 import org.bson.types.ObjectId
 
 /*
-* These traits provide lift-json related conveniece methods for case classes
+* These traits provide lift-json related convenience methods for case classes
 * and their companion objects. Used by MongoDocument, JsonObjectField, and
 * MongoJsonObjectListField
 */
@@ -34,6 +35,10 @@ trait JsonObject[BaseDocument] {
   // convert class to a json value
   def asJObject()(implicit formats: Formats): JObject = meta.toJObject(this)
 
+  def asDocument(implicit formats: Formats): Document = {
+    DocumentParser.parse(this.asJObject()(formats))
+  }
+
 }
 
 class JsonObjectMeta[BaseDocument](implicit mf: Manifest[BaseDocument]) {
@@ -41,8 +46,10 @@ class JsonObjectMeta[BaseDocument](implicit mf: Manifest[BaseDocument]) {
   import net.liftweb.json.Extraction._
 
   // create an instance of BaseDocument from a JObject
-  def create(in: JObject)(implicit formats: Formats): BaseDocument =
+  def create(in: JObject)(implicit formats: Formats): BaseDocument = {
+    println(in)
     extract(in)(formats, mf)
+  }
 
   // convert class to a JObject
   def toJObject(in: BaseDocument)(implicit formats: Formats): JObject =
