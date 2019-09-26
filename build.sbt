@@ -249,7 +249,7 @@ lazy val mongodb =
     .dependsOn(json_ext, util)
     .settings(
       parallelExecution in Test := false,
-      libraryDependencies ++= Seq(mongo_java_driver, mongo_java_driver_async),
+      libraryDependencies ++= Seq(mongo_scala_driver, mongo_java_driver, mongo_java_driver_async),
       initialize in Test := {
         System.setProperty(
           "java.util.logging.config.file",

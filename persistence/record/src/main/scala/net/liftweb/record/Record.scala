@@ -144,9 +144,10 @@ trait Record[MyType <: Record[MyType]] extends FieldContainer {
     other match {
       case that: Record[MyType] =>
         that.fields.corresponds(this.fields) { (a,b) =>
-          a.name == b.name && a.valueBox == b.valueBox
+          a == b
         }
-      case _ => false
+      case _ =>
+        false
     }
   }
 

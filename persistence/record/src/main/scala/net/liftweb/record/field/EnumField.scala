@@ -41,18 +41,18 @@ trait EnumTypedField[EnumType <: Enumeration] extends TypedField[EnumType#Value]
   def fromInt(in: Int): Box[EnumType#Value] = tryo(enum(in))
 
   def setFromAny(in: Any): Box[EnumType#Value] = in match {
-    case     (value: Int)    => setBox(fromInt(value))
-    case Some(value: Int)    => setBox(fromInt(value))
-    case Full(value: Int)    => setBox(fromInt(value))
-    case (value: Int)::_     => setBox(fromInt(value))
-    case     (value: Number) => setBox(fromInt(value.intValue))
-    case Some(value: Number) => setBox(fromInt(value.intValue))
-    case Full(value: Number) => setBox(fromInt(value.intValue))
-    case (value: Number)::_  => setBox(fromInt(value.intValue))
+    case     (value: Int)    => setFromInt(value)
+    case Some(value: Int)    => setFromInt(value)
+    case Full(value: Int)    => setFromInt(value)
+    case (value: Int)::_     => setFromInt(value)
+    case     (value: Number) => setFromInt(value.intValue)
+    case Some(value: Number) => setFromInt(value.intValue)
+    case Full(value: Number) => setFromInt(value.intValue)
+    case (value: Number)::_  => setFromInt(value.intValue)
     case _                   => genericSetFromAny(in)(valueManifest)
   }
 
-  def setFromString(s: String): Box[EnumType#Value] = 
+  def setFromString(s: String): Box[EnumType#Value] =
     if(s == null || s.isEmpty) {
       if(optional_?)
     	  setBox(Empty)
@@ -61,6 +61,8 @@ trait EnumTypedField[EnumType <: Enumeration] extends TypedField[EnumType#Value]
     } else {
       setBox(asInt(s).flatMap(fromInt))
     }
+
+  def setFromInt(in: Int): Box[EnumType#Value] = setBox(fromInt(in))
 
   /** Label for the selection item representing Empty, show when this field is optional. Defaults to the empty string. */
   def emptyOptionLabel: String = ""

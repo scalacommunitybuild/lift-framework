@@ -342,6 +342,15 @@ trait TypedField[ThisType] extends BaseField {
     case true  => setBox(Empty)
     case false => setBox(defaultValueBox)
   }
+
+  override def equals(other: Any): Boolean = {
+    other match {
+      case that: TypedField[ThisType] =>
+        that.name == this.name && that.valueBox == this.valueBox
+      case _ =>
+        false
+    }
+  }
 }
 
 trait MandatoryTypedField[ThisType] extends TypedField[ThisType] with Product1[ThisType] {

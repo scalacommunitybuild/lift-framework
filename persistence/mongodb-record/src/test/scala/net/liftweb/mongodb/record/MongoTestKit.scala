@@ -37,7 +37,7 @@ object TestMongo {
   lazy val isMongoRunning: Boolean =
     try {
       // this will throw an exception if it can't connect to the db
-      mongo.getConnectPoint
+      mongo.listDatabases
       true
     } catch {
       case _: MongoTimeoutException =>
@@ -75,7 +75,7 @@ trait MongoTestKit extends Specification with BeforeAfterEach {
     if (!debug && TestMongo.isMongoRunning) {
       // drop the databases
       dbs.foreach { case (id, _) =>
-        MongoDB.use(id) { db => db.dropDatabase }
+        MongoDB.useDatabase(id) { db => db.drop() }
       }
     }
 

@@ -22,7 +22,9 @@ import org.specs2.mutable.Specification
 
 class BsonRecordSpec extends Specification with MongoTestKit {
   "BsonRecordSpec Specification".title
+
   import fixtures._
+  import testmodels._
 
   override def before = {
     super.before

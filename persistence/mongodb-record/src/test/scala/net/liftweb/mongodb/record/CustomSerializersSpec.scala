@@ -174,7 +174,7 @@ object CustomSerializersSpec extends Specification  with MongoTestKit {
       val mother = Person.createRecord
       mother.children(List(jack, jill))
       mother.firstBorn(jack)
-      mother.save()
+      mother.save
 
       // retrieve it and compare
       val mother2 = Person.find(mother.id.get)

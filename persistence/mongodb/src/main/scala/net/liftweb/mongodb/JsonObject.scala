@@ -11,8 +11,8 @@
 * limitations under the License.
 */
 
-package net.liftweb 
-package mongodb 
+package net.liftweb
+package mongodb
 
 import json.Formats
 import json.JsonAST.JObject
@@ -22,9 +22,9 @@ import scala.reflect.Manifest
 import org.bson.types.ObjectId
 
 /*
-* These traits provide lift-json related conveniece methods for case classes
+* These traits provide lift-json related convenience methods for case classes
 * and their companion objects. Used by MongoDocument, JsonObjectField, and
-* MongoJsonObjectListField
+* JsonObjectListField
 */
 trait JsonObject[BaseDocument] {
   self: BaseDocument =>

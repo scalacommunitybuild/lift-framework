@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2018 WorldWide Conferencing, LLC
+ * Copyright 2010-2019 WorldWide Conferencing, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import com.mongodb.{BasicDBObject, BasicDBList, DBObject}
 import org.bson.types.ObjectId
 import org.bson.Document
 
+@deprecated("Please use BsonParser instead.", "3.4.0")
 object JObjectParser extends SimpleInjector {
   /**
     * Set this to override JObjectParser turning strings that are valid
@@ -37,6 +38,7 @@ object JObjectParser extends SimpleInjector {
     *
     * <code>JObjectParser.stringProcessor.default.set((s: String) => s)</code>
     */
+  @deprecated("Please use BsonParser instead.", "3.4.0")
   val stringProcessor = new Inject(() => defaultStringProcessor _) {}
 
   def defaultStringProcessor(s: String): Object = {
@@ -47,12 +49,14 @@ object JObjectParser extends SimpleInjector {
   /*
   * Parse a JObject into a DBObject
   */
+  @deprecated("Please use BsonParser instead.", "3.4.0")
   def parse(jo: JObject)(implicit formats: Formats): DBObject =
     Parser.parse(jo, formats)
 
   /*
   * Serialize a DBObject into a JObject
   */
+  @deprecated("Please use BsonParser instead.", "3.4.0")
   def serialize(a: Any)(implicit formats: Formats): JValue = {
     import Meta.Reflection._
     a.asInstanceOf[AnyRef] match {
@@ -77,8 +81,10 @@ object JObjectParser extends SimpleInjector {
     }
   }
 
+  @deprecated("Please use BsonParser instead.", "3.4.0")
   object Parser {
 
+    @deprecated("Please use BsonParser instead.", "3.4.0")
     def parse(jo: JObject, formats: Formats): DBObject = {
       parseObject(jo.obj)(formats)
     }
