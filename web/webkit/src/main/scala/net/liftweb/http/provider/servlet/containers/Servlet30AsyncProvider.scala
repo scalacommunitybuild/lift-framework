@@ -112,11 +112,11 @@ class Servlet30AsyncProvider(req: HTTPRequest) extends ServletAsyncProvider with
 
   def resume(what: (Req, LiftResponse)): Boolean = {
     logger.trace("Servlet 3.0 begin resume")
-    val httpRes = getResponse.invoke(asyncCtx).asInstanceOf[javax.servlet.http.HttpServletResponse]
-    val httpResponse = new HTTPResponseServlet(httpRes)
-    val liftServlet = req.provider.liftServlet
     try {
-    	liftServlet.sendResponse(what._2, httpResponse, what._1)
+      val httpRes = getResponse.invoke(asyncCtx).asInstanceOf[javax.servlet.http.HttpServletResponse]
+      val httpResponse = new HTTPResponseServlet(httpRes)
+      val liftServlet = req.provider.liftServlet
+      liftServlet.sendResponse(what._2, httpResponse, what._1)
     	complete.invoke(asyncCtx)
     } catch {
     case e: Exception => logger.error("Servlet 3.0 Async: Couldn't resume thread", e)
