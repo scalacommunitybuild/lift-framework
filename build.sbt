@@ -10,13 +10,13 @@ organizationName in ThisBuild      := "WorldWide Conferencing, LLC"
 
 val scala211Version = "2.11.12"
 val scala212Version = "2.12.12"
-val scala213Version = "2.13.2"
+val scala213Version = "2.13.18"
 
 val crossUpTo212 = Seq(scala212Version, scala211Version)
 val crossUpTo213 = scala213Version +: crossUpTo212
 
-scalaVersion in ThisBuild          := scala212Version
-crossScalaVersions in ThisBuild    := crossUpTo212 // default everyone to 2.12 for now
+scalaVersion in ThisBuild          := scala213Version
+crossScalaVersions in ThisBuild    := crossUpTo213 // default everyone to 2.12 for now
 
 libraryDependencies in ThisBuild ++= Seq(specs2, specs2Matchers, specs2Mock, scalacheck, scalactic, scalatest)
 
@@ -35,10 +35,6 @@ scmInfo in ThisBuild   := Some(ScmInfo(url("https://github.com/lift/framework"),
 pomExtra in ThisBuild  := Developers.toXml
 
 credentials in ThisBuild += Credentials(BuildPaths.getGlobalSettingsDirectory(state.value, BuildPaths.getGlobalBase(state.value)) / ".credentials")
-
-initialize := {
-  printLogo(name.value, version.value, scalaVersion.value)
-}
 
 resolvers  in ThisBuild  ++= Seq(
   "snapshots"     at "https://oss.sonatype.org/content/repositories/snapshots",
